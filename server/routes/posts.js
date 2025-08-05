@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 
+const Post = require("../models/Post");
+const { generateUniqueSlug } = require("../utils/slugify");
 
 // POST /api/posts - Créer
 router.post("/", async (req, res) => {
@@ -14,7 +16,11 @@ router.post("/", async (req, res) => {
     }
 
     const slug = await generateUniqueSlug(title);
-    const processedTags = tags
+
+    // Gestion flexible des tags (string ou array)
+    const processedTags = Array.isArray(tags)
+      ? tags.map((tag) => tag.trim().toLowerCase())
+      : typeof tags === "string"
       ? tags
           .split(",")
           .map((tag) => tag.trim().toLowerCase())
@@ -46,14 +52,19 @@ router.put("/:id", async (req, res) => {
   try {
     const { title, content, tags, status } = req.body;
 
+    // Gestion flexible des tags (string ou array)
+    const processedTags = Array.isArray(tags)
+      ? tags.map((tag) => tag.trim().toLowerCase())
+      : typeof tags === "string"
+      ? tags.split(",").map((tag) => tag.trim().toLowerCase())
+      : undefined;
+
     const updatedPost = await Post.findByIdAndUpdate(
       req.params.id,
       {
         title: title?.trim(),
         content: content?.trim(),
-        tags: tags
-          ? tags.split(",").map((tag) => tag.trim().toLowerCase())
-          : undefined,
+        tags: processedTags,
         status: status,
       },
       { new: true, runValidators: true }
@@ -88,9 +99,6 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-const Post = require("../models/Post");
-const { generateUniqueSlug } = require("../utils/slugify");
-
 // GET /api/posts - Liste avec filtres
 router.get("/", async (req, res) => {
   try {
@@ -113,7 +121,9 @@ router.get("/", async (req, res) => {
     }
 
     if (tags) {
-      const tagArray = tags.split(",").map((tag) => tag.trim().toLowerCase());
+      const tagArray = tags
+        .split(",")
+        .map((tag) => tag.trim().toLowerCase());
       filter.tags = { $in: tagArray };
     }
 
